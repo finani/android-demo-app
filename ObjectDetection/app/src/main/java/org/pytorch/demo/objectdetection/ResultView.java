@@ -28,6 +28,9 @@ public class ResultView extends View {
     private Paint mPaintRectangle;
     private Paint mPaintText;
     private ArrayList<Result> mResults;
+    private double mInferenceTime;
+    private double mAverageInferenceTime;
+    private int mInferenceCount;
 
     public ResultView(Context context) {
         super(context);
@@ -62,9 +65,32 @@ public class ResultView extends View {
             mPaintText.setTextSize(32);
             canvas.drawText(String.format("%s %.2f", PrePostProcessor.mClasses[result.classIndex], result.score), result.rect.left + TEXT_X, result.rect.top + TEXT_Y, mPaintText);
         }
+        Path mPath = new Path();
+        RectF mRectF = new RectF(0, 0, 2.6F * TEXT_WIDTH,  TEXT_HEIGHT);
+        mPath.addRect(mRectF, Path.Direction.CW);
+        mPaintText.setColor(Color.GRAY);
+        canvas.drawPath(mPath, mPaintText);
+
+        mPaintText.setColor(Color.WHITE);
+        mPaintText.setStrokeWidth(0);
+        mPaintText.setStyle(Paint.Style.FILL);
+        mPaintText.setTextSize(32);
+        canvas.drawText(String.format("%.2f ms (avg %.2f ms / %d inf count)", mInferenceTime, mAverageInferenceTime, mInferenceCount), TEXT_X, TEXT_Y, mPaintText);
     }
 
     public void setResults(ArrayList<Result> results) {
         mResults = results;
+    }
+
+    public void setInferenceTime(double inferenceTime) {
+        mInferenceTime = inferenceTime;
+    }
+
+    public void setAverageInferenceTime(double averageInferenceTime) {
+        mAverageInferenceTime = averageInferenceTime;
+    }
+
+    public void setInferenceCount(int inferenceCount) {
+        mInferenceCount = inferenceCount;
     }
 }

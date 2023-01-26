@@ -42,12 +42,25 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity implements Runnable {
     private int mImageIndex = 0;
-    private String[] mTestImages = {"test1.png", "test2.jpg", "test3.png"};
+//    private String[] mTestImages = {"test1.png", "test2.jpg", "test3.png"};
+    private String[] mTestImages = {
+        "test1.png",
+        "test2.jpg",
+        "test3.png",
+        "img_blade_one.jpg",
+        "img_blade_two.jpg",
+        "img_blade_three.jpg",
+        "img_blade_four.jpg",
+        "img_blade_five.jpg",
+        "img_blade_six.jpg",
+        "img_blade_seven.jpg"
+    };
 
     private ImageView mImageView;
     private ResultView mResultView;
@@ -56,6 +69,8 @@ public class MainActivity extends AppCompatActivity implements Runnable {
     private Bitmap mBitmap = null;
     private Module mModule = null;
     private float mImgScaleX, mImgScaleY, mIvScaleX, mIvScaleY, mStartX, mStartY;
+    private double averageInferenceTime = 0.0;
+    private int inferenceCount = 0;
 
     public static String assetFilePath(Context context, String assetName) throws IOException {
         File file = new File(context.getFilesDir(), assetName);
@@ -103,7 +118,7 @@ public class MainActivity extends AppCompatActivity implements Runnable {
         mResultView.setVisibility(View.INVISIBLE);
 
         final Button buttonTest = findViewById(R.id.testButton);
-        buttonTest.setText(("Test Image 1/3"));
+        buttonTest.setText(("Test Image 1/10"));
         buttonTest.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 mResultView.setVisibility(View.INVISIBLE);
@@ -153,8 +168,8 @@ public class MainActivity extends AppCompatActivity implements Runnable {
         final Button buttonLive = findViewById(R.id.liveButton);
         buttonLive.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
-              final Intent intent = new Intent(MainActivity.this, ObjectDetectionActivity.class);
-              startActivity(intent);
+                final Intent intent = new Intent(MainActivity.this, ObjectDetectionActivity.class);
+                startActivity(intent);
             }
         });
 
@@ -181,8 +196,8 @@ public class MainActivity extends AppCompatActivity implements Runnable {
         });
 
         try {
-            mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "yolov5s.torchscript.ptl"));
-            BufferedReader br = new BufferedReader(new InputStreamReader(getAssets().open("classes.txt")));
+            mModule = LiteModuleLoader.load(MainActivity.assetFilePath(getApplicationContext(), "yolov5s.torchscript.ptl")); // TODO
+            BufferedReader br = new BufferedReader(new InputStreamReader(getAssets().open("classes.txt"))); // TODO
             String line;
             List<String> classes = new ArrayList<>();
             while ((line = br.readLine()) != null) {
@@ -239,7 +254,15 @@ public class MainActivity extends AppCompatActivity implements Runnable {
     public void run() {
         Bitmap resizedBitmap = Bitmap.createScaledBitmap(mBitmap, PrePostProcessor.mInputWidth, PrePostProcessor.mInputHeight, true);
         final Tensor inputTensor = TensorImageUtils.bitmapToFloat32Tensor(resizedBitmap, PrePostProcessor.NO_MEAN_RGB, PrePostProcessor.NO_STD_RGB);
-        IValue[] outputTuple = mModule.forward(IValue.from(inputTensor)).toTuple();
+        long now = System.nanoTime();
+        IValue[] outputTuple = mModule.forward(IValue.from(inputTensor)).toTuple(); // TODO
+        double inferenceTime = (System.nanoTime() - now) / 1000000.0;
+        inferenceCount += 1;
+        if (averageInferenceTime == 0.0) {
+            averageInferenceTime = inferenceTime;
+        } else {
+            averageInferenceTime = (averageInferenceTime * (inferenceCount - 1) + inferenceTime) / inferenceCount;
+        }
         final Tensor outputTensor = outputTuple[0].toTensor();
         final float[] outputs = outputTensor.getDataAsFloatArray();
         final ArrayList<Result> results =  PrePostProcessor.outputsToNMSPredictions(outputs, mImgScaleX, mImgScaleY, mIvScaleX, mIvScaleY, mStartX, mStartY);
@@ -251,6 +274,9 @@ public class MainActivity extends AppCompatActivity implements Runnable {
             mResultView.setResults(results);
             mResultView.invalidate();
             mResultView.setVisibility(View.VISIBLE);
+            mResultView.setInferenceTime(inferenceTime);
+            mResultView.setAverageInferenceTime(averageInferenceTime);
+            mResultView.setInferenceCount(inferenceCount);
         });
     }
 }
